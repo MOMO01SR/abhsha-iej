@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التوزيع الجماعي - بينانس</title>
+    <!-- استخدام Tailwind CSS للتصميم -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans p-4 md:p-10 flex justify-center min-h-screen items-start">
+
+    <div class="w-full max-w-lg space-y-6">
+        
+        <!-- قسم الرصيد -->
+        <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 text-center">
+            <h2 class="text-gray-400 text-sm mb-2">رصيد المحفظة الفوري (USDT)</h2>
+            <h1 id="balance" class="text-4xl font-bold text-yellow-400 mb-4">جاري التحميل...</h1>
+            <button onclick="fetchBalance()" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded transition w-full">
+                تحديث الرصيد
+            </button>
+        </div>
+
+        <!-- قسم الإرسال الجماعي -->
+        <div class="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+            <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-gray-700 pb-2">عملية إرسال جماعي</h2>
+            
+            <div class="mb-4">
+                <label class="block text-gray-300 text-sm mb-2">المبلغ لكل مستخدم (USDT):</label>
+                <input type="number" id="amount" placeholder="مثال: 5" class="w-full bg-gray-900 border border-gray-600 text-white rounded p-3 focus:outline-none focus:border-yellow-400">
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-gray-300 text-sm mb-2">معرفات بينانس (Pay IDs) - كل ID في سطر منفصل:</label>
+                <textarea id="uids" rows="5" placeholder="123456789&#10;987654321" class="w-full bg-gray-900 border border-gray-600 text-white rounded p-3 focus:outline-none focus:border-yellow-400 text-left" dir="ltr"></textarea>
+            </div>
+            
+            <button onclick="sendBulk()" class="bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-lg px-4 py-3 rounded transition w-full shadow-lg">
+                بدء الإرسال
+            </button>
+            
+            <p id="status" class="mt-4 text-center text-sm text-gray-300"></p>
+        </div>
+
+    </div>
+
+    <script>
+        async function fetchBalance() {
+            document.getElementById('balance').innerText = "جاري التحميل...";
+            try {
+                const res = await fetch('/api/balance');
+                const data = await res.json();
+                document.getElementById('balance').innerText = data.balance + " USDT";
+            } catch (error) {
+                document.getElementById('balance').innerText = "خطأ في الاتصال";
+            }
+        }
+
+        async function sendBulk() {
+            const amount = document.getElementById('amount').value;
+            const uids = document.getElementById('uids').value.split('\n').map(id => id.trim()).filter(id => id !== "");
+            const statusEl = document.getElementById('status');
+            
+            if(!amount || uids.length === 0) {
+                statusEl.innerText = "⚠️ الرجاء إدخال المبلغ ومعرفات المستخدمين";
+                statusEl.classList.replace("text-gray-300", "text-red-400");
+                return;
+            }
+
+            if(!confirm(`هل أنت متأكد من إرسال ${amount} USDT لكل من الـ ${uids.length} مستخدمين؟`)) return;
+
+            statusEl.classList.replace("text-red-400", "text-gray-300");
+            statusEl.innerText = `⏳ جاري معالجة الإرسال لـ ${uids.length} مستخدمين...`;
+
+            try {
+                const res = await fetch('/api/bulk_send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount: amount, users: uids })
+                });
+                const data = await res.json();
+                statusEl.innerText = "✅ تمت العملية بنجاح!";
+                statusEl.classList.replace("text-gray-300", "text-green-400");
+                fetchBalance(); 
+            } catch (error) {
+                statusEl.innerText = "❌ حدث خطأ أثناء المعالجة";
+                statusEl.classList.replace("text-gray-300", "text-red-400");
+            }
+        }
+
+        window.onload = fetchBalance;
+    </script>
+</body>
+</html>
